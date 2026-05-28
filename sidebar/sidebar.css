@@ -882,10 +882,20 @@ html, body {
 /* ── Cluster hulls ───────────────────────────────────────────── */
 
 .cluster-hull {
-  fill-opacity: 0.12;
-  stroke-opacity: 0.45;
-  stroke-width: 2;
+  fill: rgba(0,0,0,0.06);
+  stroke: rgba(0,0,0,0.30);
+  fill-opacity: 1;
+  stroke-opacity: 1;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
   pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .cluster-hull {
+    fill: rgba(255,255,255,0.06);
+    stroke: rgba(255,255,255,0.25);
+  }
 }
 
 /* ── Chat interface ──────────────────────────────────────────── */

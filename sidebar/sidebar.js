@@ -128,26 +128,14 @@ function doRenderGraph() {
     .filter((e) => e.source && e.target);
 
   // Cluster hulls — will be updated on tick
-  const CLUSTER_COLORS = [
-    { fill: "rgba(83,74,183,0.15)", stroke: "rgba(83,74,183,0.5)" },
-    { fill: "rgba(29,158,117,0.15)", stroke: "rgba(29,158,117,0.5)" },
-    { fill: "rgba(186,117,23,0.15)", stroke: "rgba(186,117,23,0.5)" },
-    { fill: "rgba(153,60,29,0.15)", stroke: "rgba(153,60,29,0.5)" },
-    { fill: "rgba(66,133,244,0.15)", stroke: "rgba(66,133,244,0.5)" },
-    { fill: "rgba(234,67,53,0.15)", stroke: "rgba(234,67,53,0.5)" },
-  ];
-
   const clusterIds = [...new Set(nodes.map((n) => n.cluster ?? 0))];
   const hullGroup = g.append("g").attr("class", "cluster-hulls");
   const hullPaths = {};
 
   if (clusterIds.length > 1) {
     clusterIds.forEach((cid) => {
-      const color = CLUSTER_COLORS[cid % CLUSTER_COLORS.length];
       hullPaths[cid] = hullGroup.append("path")
-        .attr("class", "cluster-hull")
-        .attr("fill", color.fill)
-        .attr("stroke", color.stroke);
+        .attr("class", "cluster-hull");
     });
   }
 
