@@ -142,11 +142,6 @@
   <!-- ── TAB: SETTINGS ─────────────────────────────────────── -->
   <div id="tab-settings" class="tab-panel" style="display:none">
     <div class="settings-section">
-      <label class="settings-label">Tema de investigacion</label>
-      <p class="settings-desc" id="topic-summary">No definido.</p>
-      <button class="settings-save-btn" id="btn-edit-topic">Definir / editar tema</button>
-    </div>
-    <div class="settings-section">
       <label class="settings-label" for="input-apikey">Gemini API Key</label>
       <p class="settings-desc">Necesaria para generar resumenes, encontrar relaciones y analizar tu investigacion. Pega tu API key de Google AI Studio. Se guarda solo en tu navegador.</p>
       <input type="password" id="input-apikey" class="settings-input" placeholder="API key de Gemini..." autocomplete="off" />
@@ -163,22 +158,6 @@
       <label class="settings-label">Exportar</label>
       <p class="settings-desc">Descargá tu grafo completo en formato JSON para importarlo en otras herramientas.</p>
       <button class="settings-save-btn" id="btn-export-settings">Descargar grafo JSON</button>
-    </div>
-  </div>
-
-  <!-- ── TOPIC GATE ─────────────────────────────────────────────── -->
-  <div id="topic-gate" class="topic-gate" style="display:none">
-    <div class="topic-card">
-      <div class="topic-title">Tema de investigacion (opcional)</div>
-      <p class="topic-sub">Defini el contexto de tu investigacion para que los resumenes y analisis sean mas precisos.</p>
-      <label class="topic-label" for="topic-title">Titulo del tema</label>
-      <input type="text" id="topic-title" class="topic-input" placeholder="Ej: Modelos generativos para educacion" maxlength="120" />
-      <label class="topic-label" for="topic-desc">Breve descripcion</label>
-      <textarea id="topic-desc" class="topic-input topic-textarea" rows="4" placeholder="Que estas investigando y por que" maxlength="600"></textarea>
-      <div class="topic-actions">
-        <button class="topic-save" id="btn-save-topic">Guardar tema</button>
-      </div>
-      <div class="topic-status" id="topic-status"></div>
     </div>
   </div>
 

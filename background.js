@@ -560,6 +560,8 @@ async function chatAskResearch(question, history = []) {
 
   const systemPrompt = `Sos un asistente de investigacion. Responde basandote SOLO en las fuentes proporcionadas. Cita fuentes por numero [1], [2], etc. Si las fuentes no tienen suficiente informacion, decilo y sugeri que buscar.
 
+IMPORTANTE: Escribi en texto plano natural, como si hablaras. NO uses formato markdown (nada de asteriscos, negritas, bullets, headers, ni backticks). Usa saltos de linea para separar parrafos.
+
 ${topicCtx}FUENTES:
 ${sourcesCtx}
 
@@ -586,23 +588,24 @@ Responde en español. Se especifico, analitico, y cita fuentes.`;
 }
 
 async function analyzeResearchGaps() {
-  if (!researchTopic) return { ok: false, error: "no_topic" };
   if (graph.nodes.length < 5) return { ok: false, error: "too_few_nodes", minNodes: 5 };
   if (!apiKey) return { ok: false, error: "no_api_key" };
 
-  // Use summaries for gap analysis
   const nodesSummary = graph.nodes.map((n) =>
     `- "${n.title}": ${n.summary || n.contentSnippet || "(sin resumen)"}`
   ).slice(0, 20).join("\n");
 
   const concepts = [...new Set(graph.nodes.flatMap((n) => n.concepts || []))].slice(0, 30).join(", ");
 
-  const prompt = `Sos un asesor de investigacion. Analiza esta investigacion e identifica 3-5 vacios importantes, perspectivas faltantes o subtemas poco explorados.
+  const topicHint = researchTopic
+    ? `Tema de referencia: ${researchTopic.title} — ${researchTopic.description}\n`
+    : "";
 
-Tema: ${researchTopic.title} — ${researchTopic.description}
-Fuentes:
+  const prompt = `Sos un asesor de investigacion. Analiza las siguientes fuentes e identifica 3-5 vacios importantes, perspectivas faltantes o subtemas poco explorados.
+
+${topicHint}Fuentes:
 ${nodesSummary}
-Conceptos: ${concepts}
+Conceptos cubiertos: ${concepts}
 
 Devuelve SOLO un JSON array de objetos con:
 - "gap": titulo corto del vacio (max 10 palabras)
@@ -633,17 +636,19 @@ Sin markdown, sin explicacion fuera del JSON.`;
 }
 
 async function suggestSources() {
-  if (!researchTopic) return { ok: false, error: "no_topic" };
-  if (graph.nodes.length < 3) return { ok: false, error: "too_few_nodes", minNodes: 3 };
+  if (graph.nodes.length < 5) return { ok: false, error: "too_few_nodes", minNodes: 5 };
   if (!apiKey) return { ok: false, error: "no_api_key" };
 
   const nodesSummary = graph.nodes.slice(0, 15).map((n) => `${n.title} (${n.type})`).join("; ");
   const concepts = [...new Set(graph.nodes.flatMap((n) => n.concepts || []))].slice(0, 20).join(", ");
 
-  const prompt = `Sos un asesor de investigacion. Sugeri 3-5 nuevas direcciones, papers o temas para explorar que complementen esta investigacion.
+  const topicHint = researchTopic
+    ? `Tema de referencia: ${researchTopic.title} — ${researchTopic.description}\n`
+    : "";
 
-Tema: ${researchTopic.title} — ${researchTopic.description}
-Fuentes actuales: ${nodesSummary}
+  const prompt = `Sos un asesor de investigacion. Sugeri 3-5 nuevas direcciones, papers o temas para explorar que complementen estas fuentes de investigacion.
+
+${topicHint}Fuentes actuales: ${nodesSummary}
 Conceptos clave: ${concepts}
 
 Devuelve SOLO un JSON array de objetos con:

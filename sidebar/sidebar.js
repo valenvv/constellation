@@ -7,7 +7,6 @@ let graph = { nodes: [], edges: [] };
 let simulation = null;
 let selectedNode = null;
 let currentFilter = "all";
-let researchTopic = null;
 
 // Chat state
 let chatHistory = [];
@@ -20,7 +19,6 @@ let graphFilterSource = "all";
 
 document.addEventListener("DOMContentLoaded", () => {
   loadGraph();
-  loadTopic();
   setupTabs();
   setupNoteBar();
   setupSettings();
@@ -29,7 +27,6 @@ document.addEventListener("DOMContentLoaded", () => {
   setupListFilters();
   setupDetailPanel();
   setupChat();
-  setupTopicGate();
   setupGraphFabs();
   setupGraphFilters();
 
@@ -63,13 +60,6 @@ function loadGraph() {
       renderGraph();
       renderList();
     }
-  });
-}
-
-function loadTopic() {
-  chrome.runtime.sendMessage({ type: "GET_TOPIC" }, (res) => {
-    researchTopic = res?.topic || null;
-    updateTopicUI();
   });
 }
 
@@ -139,12 +129,12 @@ function doRenderGraph() {
 
   // Cluster hulls — will be updated on tick
   const CLUSTER_COLORS = [
-    { fill: "rgba(83,74,183,0.08)", stroke: "rgba(83,74,183,0.25)" },
-    { fill: "rgba(29,158,117,0.08)", stroke: "rgba(29,158,117,0.25)" },
-    { fill: "rgba(186,117,23,0.08)", stroke: "rgba(186,117,23,0.25)" },
-    { fill: "rgba(153,60,29,0.08)", stroke: "rgba(153,60,29,0.25)" },
-    { fill: "rgba(66,133,244,0.08)", stroke: "rgba(66,133,244,0.25)" },
-    { fill: "rgba(234,67,53,0.08)", stroke: "rgba(234,67,53,0.25)" },
+    { fill: "rgba(83,74,183,0.15)", stroke: "rgba(83,74,183,0.5)" },
+    { fill: "rgba(29,158,117,0.15)", stroke: "rgba(29,158,117,0.5)" },
+    { fill: "rgba(186,117,23,0.15)", stroke: "rgba(186,117,23,0.5)" },
+    { fill: "rgba(153,60,29,0.15)", stroke: "rgba(153,60,29,0.5)" },
+    { fill: "rgba(66,133,244,0.15)", stroke: "rgba(66,133,244,0.5)" },
+    { fill: "rgba(234,67,53,0.15)", stroke: "rgba(234,67,53,0.5)" },
   ];
 
   const clusterIds = [...new Set(nodes.map((n) => n.cluster ?? 0))];
@@ -193,7 +183,7 @@ function doRenderGraph() {
   simulation = d3
     .forceSimulation(nodes)
     .force("link", d3.forceLink(links).id((d) => d.id)
-      .distance((d) => maxWeight > 0 ? 140 - 60 * ((d.weight || 0) / maxWeight) : 80)
+      .distance((d) => maxWeight > 0 ? 220 - 150 * ((d.weight || 0) / maxWeight) : 120)
     )
     .force("charge", d3.forceManyBody().strength(-250))
     .force("center", d3.forceCenter(W / 2, H / 2))
@@ -226,9 +216,19 @@ function doRenderGraph() {
   const edgeTooltip = getEdgeTooltip();
   const edgeEvents = (sel) => sel
     .on("mousemove", (event, d) => {
+      g.classed("edge-hover", true);
+      link.classed("hl", (l) => l === d);
+      linkHit.classed("hl", (l) => l === d);
+      node.classed("hl", (n) => n.id === d.source.id || n.id === d.target.id);
       showEdgeTooltip(edgeTooltip, formatEdgeReason(d), event);
     })
-    .on("mouseout", () => hideEdgeTooltip(edgeTooltip))
+    .on("mouseout", () => {
+      g.classed("edge-hover", false);
+      link.classed("hl", false);
+      linkHit.classed("hl", false);
+      node.classed("hl", false);
+      hideEdgeTooltip(edgeTooltip);
+    })
     .on("click", (event, d) => {
       event.stopPropagation();
       showEdgeTooltip(edgeTooltip, formatEdgeReason(d), event);
@@ -246,6 +246,16 @@ function doRenderGraph() {
     .call(drag(simulation))
     .on("click", (event, d) => {
       event.stopPropagation();
+      // Focus mode: highlight only this node and its direct neighbors
+      const connectedIds = new Set([d.id]);
+      links.forEach((l) => {
+        if (l.source.id === d.id) connectedIds.add(l.target.id);
+        if (l.target.id === d.id) connectedIds.add(l.source.id);
+      });
+      g.classed("node-focused", true);
+      node.classed("hl", (n) => connectedIds.has(n.id));
+      link.classed("hl", (l) => l.source.id === d.id || l.target.id === d.id);
+      linkHit.classed("hl", (l) => l.source.id === d.id || l.target.id === d.id);
       showDetail(d);
     });
 
@@ -256,7 +266,7 @@ function doRenderGraph() {
     .attr("dy", (d) => nodeRadius(d) + 11)
     .text((d) => truncate(d.title, 18));
 
-  // Dismiss detail when clicking canvas (only if the click is on the svg background, not bubbled from a node)
+  // Click background to clear focus
   svg.on("click", (event) => {
     if (event.target === svg.node()) hideDetail();
   });
@@ -341,6 +351,11 @@ function showDetail(nodeData) {
 function hideDetail() {
   document.getElementById("node-detail").style.display = "none";
   selectedNode = null;
+  const gSel = d3.select("#graph-svg g");
+  gSel.classed("node-focused", false);
+  gSel.selectAll(".graph-node").classed("hl", false);
+  gSel.selectAll(".graph-link").classed("hl", false);
+  gSel.selectAll(".graph-link-hit").classed("hl", false);
 }
 
 function setupDetailPanel() {
@@ -496,86 +511,6 @@ function setupSettings() {
   });
 }
 
-// ── Topic gate ───────────────────────────────────────────────────────────
-
-function setupTopicGate() {
-  document.getElementById("btn-edit-topic").addEventListener("click", () => {
-    openTopicGate();
-  });
-
-  document.getElementById("btn-save-topic").addEventListener("click", () => {
-    const titleEl = document.getElementById("topic-title");
-    const descEl = document.getElementById("topic-desc");
-    const statusEl = document.getElementById("topic-status");
-    const title = titleEl.value.trim();
-    const description = descEl.value.trim();
-
-    if (!title || !description) {
-      statusEl.textContent = "Completa titulo y descripcion.";
-      return;
-    }
-
-    statusEl.textContent = "Guardando...";
-    chrome.runtime.sendMessage(
-      { type: "SET_TOPIC", title, description },
-      (res) => {
-        if (!res?.ok) {
-          statusEl.textContent = "No se pudo guardar el tema.";
-          return;
-        }
-        researchTopic = res.topic;
-        statusEl.textContent = "Tema guardado.";
-        updateTopicUI();
-        setTimeout(() => {
-          closeTopicGate();
-          statusEl.textContent = "";
-        }, 400);
-      }
-    );
-  });
-}
-
-function updateTopicUI() {
-  const gate = document.getElementById("topic-gate");
-  const summary = document.getElementById("topic-summary");
-  const editBtn = document.getElementById("btn-edit-topic");
-  const noteInput = document.getElementById("note-input");
-  const noteBtn = document.getElementById("btn-add-note");
-
-  if (researchTopic?.title) {
-    gate.style.display = "none";
-    summary.textContent = `${researchTopic.title} — ${researchTopic.description.slice(0, 90)}${researchTopic.description.length > 90 ? "…" : ""}`;
-    editBtn.style.display = "inline-flex";
-    noteInput.disabled = false;
-    noteBtn.disabled = false;
-    noteInput.placeholder = "Agregar nota rapida...";
-  } else {
-    summary.textContent = "No definido (opcional — las paginas se capturan igual).";
-    editBtn.style.display = "inline-flex";
-    noteInput.disabled = false;
-    noteBtn.disabled = false;
-    noteInput.placeholder = "Agregar nota rapida...";
-    // Don't block the UI — topic is optional, pages capture automatically
-    gate.style.display = "none";
-  }
-}
-
-function openTopicGate() {
-  const gate = document.getElementById("topic-gate");
-  const titleEl = document.getElementById("topic-title");
-  const descEl = document.getElementById("topic-desc");
-  if (researchTopic) {
-    titleEl.value = researchTopic.title || "";
-    descEl.value = researchTopic.description || "";
-  }
-  gate.style.display = "flex";
-}
-
-function closeTopicGate() {
-  const gate = document.getElementById("topic-gate");
-  gate.style.display = "none";
-}
-
 // ── Export ────────────────────────────────────────────────────────────────
 
 function setupExport() {
@@ -725,11 +660,22 @@ function handleChatSend() {
   );
 }
 
+function stripMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/`(.+?)`/g, "$1")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/\[(.+?)\]\(.+?\)/g, "$1")
+    .trim();
+}
+
 function appendChatBubble(role, text, sources) {
   const messagesEl = document.getElementById("chat-messages");
   const bubble = document.createElement("div");
   bubble.className = `chat-bubble chat-bubble-${role}`;
-  bubble.textContent = text;
+  bubble.textContent = role === "assistant" ? stripMarkdown(text) : text;
 
   if (role === "assistant" && sources && sources.length > 0) {
     const srcDiv = document.createElement("div");
@@ -785,7 +731,6 @@ function handlePopupGaps() {
     btn.disabled = false;
     if (!res?.ok) {
       const msgs = {
-        no_topic: "Defini un tema de investigacion primero.",
         too_few_nodes: `Necesitas al menos ${res?.minNodes || 5} fuentes para analizar vacios.`,
         no_api_key: "Configura una API key en la pestana Config.",
         analysis_failed: "No se pudo completar el analisis. Intenta de nuevo.",
@@ -822,8 +767,7 @@ function handlePopupSuggestions() {
     btn.disabled = false;
     if (!res?.ok) {
       const msgs = {
-        no_topic: "Defini un tema de investigacion primero.",
-        too_few_nodes: `Necesitas al menos ${res?.minNodes || 3} fuentes para recibir sugerencias.`,
+        too_few_nodes: `Necesitas al menos ${res?.minNodes || 5} fuentes para recibir sugerencias.`,
         no_api_key: "Configura una API key en la pestana Config.",
         suggestion_failed: "No se pudieron generar sugerencias. Intenta de nuevo.",
       };

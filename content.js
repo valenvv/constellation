@@ -94,14 +94,18 @@
       "amazon.com", "ebay.com", "mercadolibre.com",
       "github.com", "gitlab.com", "bitbucket.org",
       "localhost",
+      // Search engines — never capture results pages
+      "scholar.google.com", "scholar.google.com.ar",
+      "bing.com", "duckduckgo.com", "search.yahoo.com",
+      "yandex.com", "baidu.com", "ecosia.org", "brave.com",
     ];
     if (blocked.some((h) => host === h || host.endsWith("." + h))) return true;
 
-    // Google search
+    // Google search (any google domain with search paths)
     const path = parsed.pathname || "";
     const query = parsed.search || "";
     const isGoogle = host === "google.com" || host.endsWith(".google.com");
-    if (isGoogle && (path.startsWith("/search") || path.startsWith("/url") || path.startsWith("/imgres"))) return true;
+    if (isGoogle && (path.startsWith("/search") || path.startsWith("/url") || path.startsWith("/imgres") || path.startsWith("/scholar"))) return true;
     if (isGoogle && path === "/" && /[?&]q=/.test(query)) return true;
 
     // Chrome internal

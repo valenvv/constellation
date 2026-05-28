@@ -244,6 +244,7 @@ html, body {
   stroke-opacity: 0.45;
   stroke-width: 1.2;
   pointer-events: none;
+  transition: stroke-opacity 0.15s;
 }
 
 .graph-node circle {
@@ -258,7 +259,26 @@ html, body {
   fill: var(--text-muted);
   pointer-events: none;
   text-anchor: middle;
+  transition: opacity 0.15s;
 }
+
+/* ── Edge hover: dim everything except hovered edge + its two nodes ── */
+.edge-hover .graph-link        { stroke-opacity: 0.05 !important; }
+.edge-hover .graph-link.hl     { stroke-opacity: 0.9 !important; }
+.edge-hover .graph-node circle { opacity: 0.15; }
+.edge-hover .graph-node.hl circle { opacity: 1; }
+.edge-hover .graph-node text   { opacity: 0.1; }
+.edge-hover .graph-node.hl text { opacity: 1; }
+.edge-hover .cluster-hull      { opacity: 0.02; }
+
+/* ── Node focus: dim everything except clicked node + neighbors ────── */
+.node-focused .graph-link          { stroke-opacity: 0.04 !important; }
+.node-focused .graph-link.hl       { stroke-opacity: 0.85 !important; }
+.node-focused .graph-node circle   { opacity: 0.1; }
+.node-focused .graph-node.hl circle { opacity: 1; }
+.node-focused .graph-node text     { opacity: 0.06; }
+.node-focused .graph-node.hl text  { opacity: 1; }
+.node-focused .cluster-hull        { opacity: 0.02; }
 
 /* Edge tooltip */
 .edge-tooltip {
@@ -862,10 +882,9 @@ html, body {
 /* ── Cluster hulls ───────────────────────────────────────────── */
 
 .cluster-hull {
-  fill-opacity: 0.06;
-  stroke-opacity: 0.2;
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
+  fill-opacity: 0.12;
+  stroke-opacity: 0.45;
+  stroke-width: 2;
   pointer-events: none;
 }
 
