@@ -55,7 +55,7 @@
     </svg>
     Guardar en grafo
   `;
-  fab.title = "Guardar esta conversación en ResearchMap";
+  fab.title = "Guardar esta conversación en Constellation";
 
   const toast = document.createElement("div");
   toast.id = "researchmap-toast";

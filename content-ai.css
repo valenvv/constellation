@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap");
+
 /* ResearchMap — content-ai.css */
 /* Floating button injected into ChatGPT, Claude, Perplexity, Gemini */
 
@@ -18,7 +20,7 @@
 
   background: #534AB7;
   color: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
   font-weight: 500;
   line-height: 1;
@@ -65,7 +67,7 @@
   border-radius: 10px;
   background: #2C2C2A;
   color: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 12px;
   font-weight: 400;
   line-height: 1.4;

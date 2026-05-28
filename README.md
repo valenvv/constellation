@@ -1,4 +1,4 @@
-# ResearchMap — Chrome Extension
+# Constellation — Chrome Extension
 
 Builds an automatic knowledge graph of your research sessions.
 
@@ -8,7 +8,7 @@ Builds an automatic knowledge graph of your research sessions.
 1.a (Optional) To use Gemini (Flash 2.5) instead of Claude: obtain a Google Generative API token (service-account or OAuth access token) and paste it in the sidebar settings. Gemini support is experimental; the token must be usable as a Bearer token for the Generative Language API.
 2. Open Chrome → `chrome://extensions` → Enable "Developer mode"
 3. Click "Load unpacked" → select this folder
-4. Click the ResearchMap icon in the toolbar to open the sidebar
+4. Click the Constellation icon in the toolbar to open the sidebar
 5. Go to **Config** tab and enter your Claude API key
 
 ## How it works
@@ -32,7 +32,7 @@ La extensión ya incluye un renderizador SVG simple en el `sidebar` que no depen
 ## Folder structure
 
 ```
-researchmap/
+constellation/
 ├── manifest.json
 ├── background.js       # Service worker — graph state + Claude API
 ├── content.js          # Runs on web pages
