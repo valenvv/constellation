@@ -9,6 +9,13 @@ let selectedNode = null;
 let currentFilter = "all";
 let researchTopic = null;
 
+// Chat state
+let chatHistory = [];
+
+// Graph filters
+let graphFilterType = "all";
+let graphFilterSource = "all";
+
 // ── Init ──────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -21,8 +28,10 @@ document.addEventListener("DOMContentLoaded", () => {
   setupClear();
   setupListFilters();
   setupDetailPanel();
-  setupInsights();
+  setupChat();
   setupTopicGate();
+  setupGraphFabs();
+  setupGraphFilters();
 
   // Re-render on resize so the simulation re-centres if the side panel changes size
   window.addEventListener("resize", () => {
@@ -82,6 +91,7 @@ function doRenderGraph() {
     return;
   }
   empty.style.display = "none";
+  updateSourceFilter();
 
   const container = document.getElementById("graph-container");
   // Fallbacks in case the container hasn't been laid out yet
@@ -99,8 +109,15 @@ function doRenderGraph() {
       .on("zoom", (event) => g.attr("transform", event.transform))
   );
 
-  // Build nodes/links referencing the actual objects
-  const nodes = graph.nodes.map((n) => ({ ...n }));
+  // Apply filters
+  const filteredNodes = graph.nodes.filter((n) => {
+    if (graphFilterType !== "all" && n.type !== graphFilterType) return false;
+    if (graphFilterSource !== "all" && n.source !== graphFilterSource) return false;
+    return true;
+  });
+  const filteredIds = new Set(filteredNodes.map((n) => n.id));
+
+  const nodes = filteredNodes.map((n) => ({ ...n }));
   const nodeById = Object.fromEntries(nodes.map((n) => [n.id, n]));
 
   // Compute degree (number of connections) per node for sizing
@@ -112,12 +129,60 @@ function doRenderGraph() {
   nodes.forEach((n) => { n._degree = degree[n.id] || 0; });
 
   const links = graph.edges
+    .filter((e) => filteredIds.has(e.source) && filteredIds.has(e.target))
     .map((e) => ({
       ...e,
       source: nodeById[e.source],
       target: nodeById[e.target],
     }))
     .filter((e) => e.source && e.target);
+
+  // Cluster hulls — will be updated on tick
+  const CLUSTER_COLORS = [
+    { fill: "rgba(83,74,183,0.08)", stroke: "rgba(83,74,183,0.25)" },
+    { fill: "rgba(29,158,117,0.08)", stroke: "rgba(29,158,117,0.25)" },
+    { fill: "rgba(186,117,23,0.08)", stroke: "rgba(186,117,23,0.25)" },
+    { fill: "rgba(153,60,29,0.08)", stroke: "rgba(153,60,29,0.25)" },
+    { fill: "rgba(66,133,244,0.08)", stroke: "rgba(66,133,244,0.25)" },
+    { fill: "rgba(234,67,53,0.08)", stroke: "rgba(234,67,53,0.25)" },
+  ];
+
+  const clusterIds = [...new Set(nodes.map((n) => n.cluster ?? 0))];
+  const hullGroup = g.append("g").attr("class", "cluster-hulls");
+  const hullPaths = {};
+
+  if (clusterIds.length > 1) {
+    clusterIds.forEach((cid) => {
+      const color = CLUSTER_COLORS[cid % CLUSTER_COLORS.length];
+      hullPaths[cid] = hullGroup.append("path")
+        .attr("class", "cluster-hull")
+        .attr("fill", color.fill)
+        .attr("stroke", color.stroke);
+    });
+  }
+
+  function updateHulls() {
+    if (clusterIds.length <= 1) return;
+    clusterIds.forEach((cid) => {
+      const pts = nodes.filter((n) => (n.cluster ?? 0) === cid).map((n) => [n.x, n.y]);
+      if (pts.length < 3) {
+        if (hullPaths[cid]) hullPaths[cid].attr("d", "");
+        return;
+      }
+      const hull = d3.polygonHull(pts);
+      if (hull && hullPaths[cid]) {
+        const pad = 22;
+        const cx = d3.mean(hull, (p) => p[0]);
+        const cy = d3.mean(hull, (p) => p[1]);
+        const expanded = hull.map((p) => {
+          const dx = p[0] - cx, dy = p[1] - cy;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          return [p[0] + (dx / len) * pad, p[1] + (dy / len) * pad];
+        });
+        hullPaths[cid].attr("d", "M" + expanded.join("L") + "Z");
+      }
+    });
+  }
 
   // Compute weight percentile to hide weak edges when graph is large
   const weights = links.map((l) => l.weight || 0).sort((a, b) => a - b);
@@ -210,6 +275,7 @@ function doRenderGraph() {
       .attr("y2", (d) => d.target.y);
 
     node.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    updateHulls();
   });
 }
 
@@ -368,11 +434,10 @@ function switchTab(tabId) {
   document.querySelectorAll(".tab-panel").forEach((p) => {
     p.style.display = p.id === `tab-${tabId}` ? "flex" : "none";
   });
-  // Hide note bar on Config/Insights — it's not useful there and covers buttons
   const noteBar = document.querySelector(".note-bar");
-  if (noteBar) noteBar.style.display = (tabId === "settings" || tabId === "insights") ? "none" : "flex";
+  if (noteBar) noteBar.style.display = (tabId === "settings" || tabId === "chat") ? "none" : "flex";
   if (tabId === "list") renderList();
-  if (tabId === "graph") renderGraph();
+  if (tabId === "graph") { updateSourceFilter(); renderGraph(); }
 }
 
 // ── Note bar ──────────────────────────────────────────────────────────────
@@ -591,69 +656,128 @@ function hideEdgeTooltip(el) {
   el.classList.remove("visible");
 }
 
-// ── Insights (gaps + suggestions) ────────────────────────────────────────
+// ── Chat (Ask my research) ───────────────────────────────────────────────
 
-function setupInsights() {
-  document.getElementById("btn-find-gaps").addEventListener("click", handleFindGaps);
-  document.getElementById("btn-suggest-sources").addEventListener("click", handleSuggestSources);
+function setupChat() {
+  const sendBtn = document.getElementById("btn-chat-send");
+  const chatInput = document.getElementById("chat-input");
 
-  const askBtn = document.getElementById("btn-ask-research");
-  const askInput = document.getElementById("ask-input");
-  askBtn.addEventListener("click", handleAskResearch);
-  askInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") handleAskResearch();
+  sendBtn.addEventListener("click", handleChatSend);
+  chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleChatSend();
   });
 }
 
-async function handleAskResearch() {
-  const input = document.getElementById("ask-input");
-  const btn = document.getElementById("btn-ask-research");
-  const container = document.getElementById("ask-results");
+function handleChatSend() {
+  const input = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("btn-chat-send");
+  const messagesEl = document.getElementById("chat-messages");
   const question = input.value.trim();
   if (!question) return;
 
-  btn.disabled = true;
-  container.innerHTML = '<p class="insights-loading">Analizando tus fuentes...</p>';
+  // Remove welcome message
+  const welcome = messagesEl.querySelector(".chat-welcome");
+  if (welcome) welcome.remove();
 
-  chrome.runtime.sendMessage({ type: "ASK_RESEARCH", question }, (res) => {
-    btn.disabled = false;
-    if (!res?.ok) {
-      const msgs = {
-        no_topic: "Defini un tema de investigacion primero.",
-        too_few_nodes: "Necesitas al menos 2 fuentes para preguntar.",
-        no_api_key: "Configura una API key en la pestana Config.",
-        ask_failed: "No se pudo generar la respuesta. Intenta de nuevo.",
-      };
-      container.innerHTML = `<p class="insights-error">${msgs[res?.error] || "Error desconocido."}</p>`;
-      return;
+  // Add user bubble
+  appendChatBubble("user", question);
+  input.value = "";
+  sendBtn.disabled = true;
+
+  // Add loading bubble
+  const loadingId = "chat-loading-" + Date.now();
+  const loadingEl = document.createElement("div");
+  loadingEl.id = loadingId;
+  loadingEl.className = "chat-bubble chat-bubble-loading";
+  loadingEl.textContent = "Analizando tus fuentes...";
+  messagesEl.appendChild(loadingEl);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  chrome.runtime.sendMessage(
+    { type: "CHAT_ASK", question, history: chatHistory },
+    (res) => {
+      sendBtn.disabled = false;
+      const loading = document.getElementById(loadingId);
+      if (loading) loading.remove();
+
+      if (!res?.ok) {
+        const msgs = {
+          too_few_nodes: "Necesitas al menos 2 fuentes para preguntar.",
+          no_api_key: "Configura una API key en la pestana Config.",
+          ask_failed: "No se pudo generar la respuesta. Intenta de nuevo.",
+        };
+        const errEl = document.createElement("div");
+        errEl.className = "chat-bubble chat-bubble-error";
+        errEl.textContent = msgs[res?.error] || "Error desconocido.";
+        messagesEl.appendChild(errEl);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return;
+      }
+
+      // Save to history
+      chatHistory.push({ role: "user", content: question });
+      chatHistory.push({ role: "assistant", content: res.answer });
+
+      // Add assistant bubble with sources
+      appendChatBubble("assistant", res.answer, res.sources);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
     }
-
-    container.innerHTML = "";
-
-    const answerDiv = document.createElement("div");
-    answerDiv.className = "ask-answer";
-    answerDiv.textContent = res.answer;
-    container.appendChild(answerDiv);
-
-    if (res.sources && res.sources.length > 0) {
-      const sourcesDiv = document.createElement("div");
-      sourcesDiv.className = "ask-sources";
-      sourcesDiv.innerHTML = "<strong>Fuentes citadas:</strong>";
-      res.sources.forEach((s) => {
-        const link = document.createElement("a");
-        link.className = "ask-source-link";
-        link.textContent = s.title;
-        if (s.url) { link.href = s.url; link.target = "_blank"; link.rel = "noopener"; }
-        sourcesDiv.appendChild(link);
-      });
-      container.appendChild(sourcesDiv);
-    }
-  });
+  );
 }
 
-async function handleFindGaps() {
-  const btn = document.getElementById("btn-find-gaps");
-  const container = document.getElementById("gaps-results");
+function appendChatBubble(role, text, sources) {
+  const messagesEl = document.getElementById("chat-messages");
+  const bubble = document.createElement("div");
+  bubble.className = `chat-bubble chat-bubble-${role}`;
+  bubble.textContent = text;
+
+  if (role === "assistant" && sources && sources.length > 0) {
+    const srcDiv = document.createElement("div");
+    srcDiv.className = "chat-bubble-sources";
+    srcDiv.innerHTML = "<strong>Fuentes:</strong>";
+    sources.forEach((s) => {
+      const a = document.createElement("a");
+      a.textContent = s.title;
+      if (s.url) { a.href = s.url; a.target = "_blank"; a.rel = "noopener"; }
+      srcDiv.appendChild(a);
+    });
+    bubble.appendChild(srcDiv);
+  }
+
+  messagesEl.appendChild(bubble);
+}
+
+// ── Graph floating buttons (Gaps + Suggestions) ─────────────────────────
+
+function setupGraphFabs() {
+  document.getElementById("btn-fab-gaps").addEventListener("click", () => {
+    togglePopup("popup-gaps");
+  });
+  document.getElementById("btn-fab-suggestions").addEventListener("click", () => {
+    togglePopup("popup-suggestions");
+  });
+
+  document.querySelectorAll(".popup-close").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const popupId = btn.dataset.popup;
+      if (popupId) document.getElementById(popupId).style.display = "none";
+    });
+  });
+
+  document.getElementById("btn-popup-gaps-analyze").addEventListener("click", handlePopupGaps);
+  document.getElementById("btn-popup-suggestions-suggest").addEventListener("click", handlePopupSuggestions);
+}
+
+function togglePopup(id) {
+  const popup = document.getElementById(id);
+  const other = id === "popup-gaps" ? "popup-suggestions" : "popup-gaps";
+  document.getElementById(other).style.display = "none";
+  popup.style.display = popup.style.display === "none" ? "flex" : "none";
+}
+
+function handlePopupGaps() {
+  const btn = document.getElementById("btn-popup-gaps-analyze");
+  const container = document.getElementById("popup-gaps-body");
   btn.disabled = true;
   container.innerHTML = '<p class="insights-loading">Analizando tu investigacion...</p>';
 
@@ -663,7 +787,7 @@ async function handleFindGaps() {
       const msgs = {
         no_topic: "Defini un tema de investigacion primero.",
         too_few_nodes: `Necesitas al menos ${res?.minNodes || 5} fuentes para analizar vacios.`,
-        no_api_key: "Configura una API key en la pestaña Config.",
+        no_api_key: "Configura una API key en la pestana Config.",
         analysis_failed: "No se pudo completar el analisis. Intenta de nuevo.",
       };
       container.innerHTML = `<p class="insights-error">${msgs[res?.error] || "Error desconocido."}</p>`;
@@ -671,8 +795,6 @@ async function handleFindGaps() {
     }
 
     container.innerHTML = "";
-
-    // Stats bar
     if (res.stats) {
       const statsDiv = document.createElement("div");
       statsDiv.className = "insights-stats";
@@ -684,22 +806,15 @@ async function handleFindGaps() {
       ].join("");
       container.appendChild(statsDiv);
     }
-
-    // Gap cards
     (res.gaps || []).forEach((gap) => {
-      container.appendChild(createInsightCard(
-        gap.gap,
-        gap.why,
-        gap.searchQuery,
-        "Buscar en Google Scholar →"
-      ));
+      container.appendChild(createInsightCard(gap.gap, gap.why, gap.searchQuery, "Buscar en Google Scholar →"));
     });
   });
 }
 
-async function handleSuggestSources() {
-  const btn = document.getElementById("btn-suggest-sources");
-  const container = document.getElementById("suggestions-results");
+function handlePopupSuggestions() {
+  const btn = document.getElementById("btn-popup-suggestions-suggest");
+  const container = document.getElementById("popup-suggestions-body");
   btn.disabled = true;
   container.innerHTML = '<p class="insights-loading">Buscando sugerencias...</p>';
 
@@ -709,7 +824,7 @@ async function handleSuggestSources() {
       const msgs = {
         no_topic: "Defini un tema de investigacion primero.",
         too_few_nodes: `Necesitas al menos ${res?.minNodes || 3} fuentes para recibir sugerencias.`,
-        no_api_key: "Configura una API key en la pestaña Config.",
+        no_api_key: "Configura una API key en la pestana Config.",
         suggestion_failed: "No se pudieron generar sugerencias. Intenta de nuevo.",
       };
       container.innerHTML = `<p class="insights-error">${msgs[res?.error] || "Error desconocido."}</p>`;
@@ -718,12 +833,7 @@ async function handleSuggestSources() {
 
     container.innerHTML = "";
     (res.suggestions || []).forEach((s) => {
-      container.appendChild(createInsightCard(
-        s.title,
-        s.why,
-        s.searchQuery,
-        "Buscar →"
-      ));
+      container.appendChild(createInsightCard(s.title, s.why, s.searchQuery, "Buscar →"));
     });
   });
 }
@@ -754,4 +864,37 @@ function createInsightCard(title, body, searchQuery, actionLabel) {
   }
 
   return card;
+}
+
+// ── Graph filters ────────────────────────────────────────────────────────
+
+function setupGraphFilters() {
+  document.querySelectorAll(".gf-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".gf-chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      graphFilterType = chip.dataset.gfilter;
+      renderGraph();
+    });
+  });
+
+  document.getElementById("gf-source-select").addEventListener("change", (e) => {
+    graphFilterSource = e.target.value;
+    renderGraph();
+  });
+}
+
+function updateSourceFilter() {
+  const select = document.getElementById("gf-source-select");
+  const sources = [...new Set(graph.nodes.map((n) => n.source).filter(Boolean))].sort();
+  const current = select.value;
+  select.innerHTML = '<option value="all">Todas las fuentes</option>';
+  sources.forEach((s) => {
+    const opt = document.createElement("option");
+    opt.value = s;
+    opt.textContent = s;
+    select.appendChild(opt);
+  });
+  if (sources.includes(current)) select.value = current;
+  else { select.value = "all"; graphFilterSource = "all"; }
 }

@@ -135,6 +135,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         askResearch(msg.question).then((res) => sendResponse(res));
         break;
 
+      case "CHAT_ASK":
+        chatAskResearch(msg.question, msg.history || []).then((res) => sendResponse(res));
+        break;
+
       case "REANALYZE_ALL":
         reanalyzeWeakNodes().then((res) => sendResponse(res));
         break;
@@ -297,6 +301,7 @@ async function generateEmbedding(nodeId) {
     broadcastGraph();
     console.log("[RM]   [embedding] ok for:", node.title?.slice(0, 30));
   }
+  setTimeout(() => enrichEdgeReasons(), 3000);
 }
 
 function deleteNode(nodeId) {
@@ -406,7 +411,94 @@ function rebuildEdges() {
 
   nodes.forEach((n) => delete n._exp);
   graph.edges = edges;
+  computeClusters();
   console.log("[RM] edges:", edges.length);
+}
+
+// ── Clustering (label propagation) ─────────────────────────────────────────
+
+function computeClusters() {
+  const nodes = graph.nodes;
+  if (nodes.length < 3) {
+    nodes.forEach((n) => { n.cluster = 0; });
+    return;
+  }
+
+  const adj = {};
+  nodes.forEach((n) => { adj[n.id] = {}; });
+  graph.edges.forEach((e) => {
+    const w = e.weight || 1;
+    if (adj[e.source]) adj[e.source][e.target] = (adj[e.source][e.target] || 0) + w;
+    if (adj[e.target]) adj[e.target][e.source] = (adj[e.target][e.source] || 0) + w;
+  });
+
+  const labels = {};
+  nodes.forEach((n, i) => { labels[n.id] = i; });
+
+  for (let iter = 0; iter < 15; iter++) {
+    let changed = false;
+    const shuffled = [...nodes].sort(() => Math.random() - 0.5);
+    for (const node of shuffled) {
+      const neighbors = adj[node.id];
+      if (!neighbors || Object.keys(neighbors).length === 0) continue;
+      const labelWeights = {};
+      for (const [nid, weight] of Object.entries(neighbors)) {
+        const l = labels[nid];
+        if (l !== undefined) labelWeights[l] = (labelWeights[l] || 0) + weight;
+      }
+      if (Object.keys(labelWeights).length === 0) continue;
+      const bl = parseInt(Object.entries(labelWeights).sort((a, b) => b[1] - a[1])[0][0]);
+      if (labels[node.id] !== bl) { labels[node.id] = bl; changed = true; }
+    }
+    if (!changed) break;
+  }
+
+  const unique = [...new Set(Object.values(labels))];
+  const map = {};
+  unique.forEach((l, i) => { map[l] = i; });
+  nodes.forEach((n) => { n.cluster = map[labels[n.id]] ?? 0; });
+}
+
+// ── Edge reason enrichment (LLM) ──────────────────────────────────────────
+
+async function enrichEdgeReasons() {
+  if (!apiKey || graph.edges.length === 0) return;
+
+  const unenriched = graph.edges.filter(
+    (e) => !e._enriched && e.sharedConcepts?.length > 0
+  );
+  if (unenriched.length === 0) return;
+
+  const batch = unenriched.slice(0, 3);
+  for (const edge of batch) {
+    const src = graph.nodes.find((n) => n.id === edge.source);
+    const tgt = graph.nodes.find((n) => n.id === edge.target);
+    if (!src || !tgt) continue;
+    if (!src.summary && !src.contentSnippet) continue;
+    if (!tgt.summary && !tgt.contentSnippet) continue;
+
+    const prompt = `Explica en 1-2 oraciones (max 50 palabras, en español) la conexion conceptual entre estas dos fuentes de investigacion. No listes keywords, explica la RELACION como concepto.
+
+Fuente A: "${src.title}"
+${(src.summary || src.contentSnippet || "").slice(0, 400)}
+
+Fuente B: "${tgt.title}"
+${(tgt.summary || tgt.contentSnippet || "").slice(0, 400)}
+
+Conceptos compartidos: ${(edge.sharedConcepts || []).slice(0, 6).join(", ")}
+
+Responde SOLO con la explicacion, sin comillas ni prefijos.`;
+
+    const reason = await callGeminiRaw(prompt, 200);
+    if (reason && reason.length > 15) {
+      edge.reason = reason;
+      edge._enriched = true;
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+
+  persistGraph();
+  broadcastGraph();
 }
 
 // ── Deep analysis — Layer 3 (uses full text on-demand) ──────────────────────
@@ -439,6 +531,50 @@ PREGUNTA: ${question}
 Responde en español, 2-4 parrafos. Se especifico, analitico, y cita fuentes.`;
 
   const answer = await callGeminiRaw(prompt, 1500);
+  if (!answer) return { ok: false, error: "ask_failed" };
+
+  const citedIndices = [...answer.matchAll(/\[(\d+)\]/g)].map((m) => parseInt(m[1]) - 1);
+  const sources = [...new Set(citedIndices)]
+    .filter((i) => i >= 0 && i < graph.nodes.length)
+    .map((i) => ({ title: graph.nodes[i].title, url: graph.nodes[i].url }));
+
+  return { ok: true, answer, sources };
+}
+
+async function chatAskResearch(question, history = []) {
+  if (graph.nodes.length < 2) return { ok: false, error: "too_few_nodes", minNodes: 2 };
+  if (!apiKey) return { ok: false, error: "no_api_key" };
+
+  const allIds = graph.nodes.map((n) => n.id);
+  const fullTexts = await getFullTexts(allIds);
+
+  const sourcesCtx = graph.nodes.map((n, i) => {
+    const ft = fullTexts[n.id];
+    const content = ft ? ft.slice(0, 3000) : (n.summary || n.contentSnippet || "").slice(0, 500);
+    return `[${i + 1}] "${n.title}" (${n.source}):\n${content}`;
+  }).join("\n\n");
+
+  const topicCtx = researchTopic
+    ? `TEMA DE INVESTIGACION: ${researchTopic.title} — ${researchTopic.description}\n\n`
+    : "";
+
+  const systemPrompt = `Sos un asistente de investigacion. Responde basandote SOLO en las fuentes proporcionadas. Cita fuentes por numero [1], [2], etc. Si las fuentes no tienen suficiente informacion, decilo y sugeri que buscar.
+
+${topicCtx}FUENTES:
+${sourcesCtx}
+
+Responde en español. Se especifico, analitico, y cita fuentes.`;
+
+  const messages = [
+    { role: "user", content: systemPrompt },
+    { role: "assistant", content: "Entendido. Tengo acceso a tus fuentes de investigación. ¿Qué te gustaría saber?" },
+  ];
+  for (const msg of history) {
+    messages.push({ role: msg.role, content: msg.content });
+  }
+  messages.push({ role: "user", content: question });
+
+  const answer = await callGeminiChat(messages, 1500);
   if (!answer) return { ok: false, error: "ask_failed" };
 
   const citedIndices = [...answer.matchAll(/\[(\d+)\]/g)].map((m) => parseInt(m[1]) - 1);
@@ -672,6 +808,45 @@ async function callGeminiJSON(message, maxTokens = 16384) {
     }
   } catch (e) {
     console.warn("[RM] GeminiJSON error:", e.message);
+    return null;
+  }
+}
+
+async function callGeminiChat(messages, maxTokens = 1500) {
+  if (!apiKey) return null;
+  try {
+    const url = `${GEMINI_API_URL}/${GEMINI_MODEL}:generateContent`;
+    const headers = { "Content-Type": "application/json" };
+    if (/^AIza[0-9A-Za-z_\-]{20,}$/.test(apiKey)) headers["x-goog-api-key"] = apiKey;
+    else headers["Authorization"] = `Bearer ${apiKey}`;
+
+    const body = {
+      contents: messages.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      })),
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        temperature: 0.3,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    };
+
+    const res = await fetchRetry(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = (data?.candidates?.[0]?.content?.parts
+      ?.filter((p) => !p.thought)
+      ?.map((p) => p.text)
+      .filter(Boolean)
+      .join("") || "").trim();
+    return text || null;
+  } catch (e) {
+    console.warn("[RM] GeminiChat error:", e.message);
     return null;
   }
 }

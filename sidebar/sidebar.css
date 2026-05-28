@@ -466,7 +466,7 @@ html, body {
 }
 .node-list-meta { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
 
-#tab-settings, #tab-insights {
+#tab-settings, #tab-chat {
   overflow-y: auto;
   padding-bottom: 16px;
 }
@@ -732,3 +732,283 @@ html, body {
 }
 .note-submit:hover { background: #3C3489; }
 .note-submit:disabled { opacity: 0.6; cursor: not-allowed; background: var(--purple); }
+
+/* ── Graph filter bar ────────────────────────────────────────── */
+
+.graph-filter-bar {
+  display: flex;
+  gap: 5px;
+  padding: 7px 12px;
+  border-bottom: 0.5px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.gf-chip {
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 0.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.gf-chip:hover { border-color: var(--border-hover); color: var(--text); }
+.gf-chip.active { background: var(--purple-light); color: var(--purple); border-color: var(--purple-mid); }
+
+.gf-source-select {
+  font-size: 10px;
+  padding: 3px 6px;
+  border-radius: var(--radius);
+  border: 0.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  outline: none;
+  margin-left: auto;
+  max-width: 120px;
+}
+
+/* ── Floating action buttons (graph) ─────────────────────────── */
+
+.graph-fabs {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 6;
+}
+
+.graph-fab {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+  transition: transform 0.12s, box-shadow 0.12s;
+  color: #fff;
+}
+.graph-fab:hover { transform: scale(1.08); box-shadow: 0 3px 14px rgba(0,0,0,0.22); }
+
+.fab-gaps { background: var(--purple); }
+.fab-sources { background: var(--amber); }
+
+/* ── Graph popups ────────────────────────────────────────────── */
+
+.graph-popup {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 60%;
+  background: var(--bg);
+  border-top: 0.5px solid var(--border);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.10);
+  overflow: hidden;
+  animation: slideUp 0.15s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 0.5px solid var(--border);
+  flex-shrink: 0;
+}
+
+.popup-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.popup-close {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+
+.popup-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popup-action {
+  margin: 8px 12px 10px;
+  align-self: flex-start;
+}
+
+/* ── Cluster hulls ───────────────────────────────────────────── */
+
+.cluster-hull {
+  fill-opacity: 0.06;
+  stroke-opacity: 0.2;
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
+
+/* ── Chat interface ──────────────────────────────────────────── */
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 16px 20px;
+  gap: 8px;
+  flex: 1;
+}
+
+.chat-welcome-icon { opacity: 0.6; }
+
+.chat-welcome-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.chat-welcome-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 260px;
+}
+
+.chat-bubble {
+  max-width: 88%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.chat-bubble-user {
+  align-self: flex-end;
+  background: var(--purple);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble-assistant {
+  align-self: flex-start;
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-bubble-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 0.5px solid var(--border);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.chat-bubble-sources a {
+  color: var(--purple);
+  text-decoration: none;
+  font-size: 10px;
+}
+.chat-bubble-sources a:hover { text-decoration: underline; }
+
+.chat-bubble-loading {
+  align-self: flex-start;
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  color: var(--text-muted);
+  border-bottom-left-radius: 4px;
+  font-style: italic;
+}
+
+.chat-bubble-error {
+  align-self: flex-start;
+  background: var(--coral-light);
+  color: var(--coral);
+  border-bottom-left-radius: 4px;
+  font-size: 11px;
+}
+
+.chat-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-top: 0.5px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 0.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+.chat-input:focus { border-color: var(--purple-mid); }
+.chat-input::placeholder { color: var(--text-faint); }
+
+.chat-send-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--purple);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+.chat-send-btn:hover { background: #3C3489; }
+.chat-send-btn:disabled { opacity: 0.6; cursor: not-allowed; }

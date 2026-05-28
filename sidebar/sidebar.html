@@ -28,12 +28,23 @@
   <nav class="tabs" role="tablist">
     <button class="tab active" data-tab="graph" role="tab">Grafo</button>
     <button class="tab" data-tab="list" role="tab">Fuentes</button>
-    <button class="tab" data-tab="insights" role="tab">Insights</button>
+    <button class="tab" data-tab="chat" role="tab">Chat</button>
     <button class="tab" data-tab="settings" role="tab">Config</button>
   </nav>
 
   <!-- ── TAB: GRAPH ─────────────────────────────────────────── -->
   <div id="tab-graph" class="tab-panel active">
+    <!-- Graph filter bar -->
+    <div class="graph-filter-bar" id="graph-filter-bar">
+      <button class="gf-chip active" data-gfilter="all">Todos</button>
+      <button class="gf-chip" data-gfilter="page">Web</button>
+      <button class="gf-chip" data-gfilter="ai_output">IA</button>
+      <button class="gf-chip" data-gfilter="note">Notas</button>
+      <select class="gf-source-select" id="gf-source-select">
+        <option value="all">Todas las fuentes</option>
+      </select>
+    </div>
+
     <div id="graph-container">
       <svg id="graph-svg"></svg>
       <div id="graph-empty" class="empty-state" style="display:none">
@@ -41,6 +52,40 @@
         <p>Tu grafo esta vacio.</p>
         <p class="empty-sub">Navega normalmente — las paginas se capturan automaticamente.</p>
       </div>
+
+      <!-- Floating action buttons -->
+      <div class="graph-fabs">
+        <button class="graph-fab fab-gaps" id="btn-fab-gaps" title="Vacios de investigacion">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1a5 5 0 0 0-5 5c0 1.5.7 2.8 1.7 3.7.6.5 1 1.2 1.1 2h4.4c.1-.8.5-1.5 1.1-2A5 5 0 0 0 8 1z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 14h4M6.5 12h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        </button>
+        <button class="graph-fab fab-sources" id="btn-fab-suggestions" title="Fuentes sugeridas">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9H3V2z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 9h6M5 11.5h4M10 2v3h3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Gaps popup -->
+    <div class="graph-popup" id="popup-gaps" style="display:none">
+      <div class="popup-header">
+        <span class="popup-title">Vacios de investigacion</span>
+        <button class="icon-btn popup-close" data-popup="popup-gaps">✕</button>
+      </div>
+      <div class="popup-body" id="popup-gaps-body">
+        <p class="insights-placeholder">Presiona Analizar para detectar vacios.</p>
+      </div>
+      <button class="insights-btn popup-action" id="btn-popup-gaps-analyze">Analizar</button>
+    </div>
+
+    <!-- Suggestions popup -->
+    <div class="graph-popup" id="popup-suggestions" style="display:none">
+      <div class="popup-header">
+        <span class="popup-title">Fuentes sugeridas</span>
+        <button class="icon-btn popup-close" data-popup="popup-suggestions">✕</button>
+      </div>
+      <div class="popup-body" id="popup-suggestions-body">
+        <p class="insights-placeholder">Presiona Sugerir para recibir recomendaciones.</p>
+      </div>
+      <button class="insights-btn popup-action" id="btn-popup-suggestions-suggest">Sugerir</button>
     </div>
 
     <!-- Node detail panel (shown on click) -->
@@ -53,7 +98,7 @@
       <p class="detail-snippet" id="detail-snippet"></p>
       <div class="detail-concepts" id="detail-concepts"></div>
       <div class="detail-actions">
-        <a class="detail-link" id="detail-link" target="_blank" rel="noopener">Abrir página →</a>
+        <a class="detail-link" id="detail-link" target="_blank" rel="noopener">Abrir pagina →</a>
         <button class="detail-delete" id="btn-delete-node">Eliminar nodo</button>
       </div>
     </div>
@@ -70,42 +115,23 @@
     <ul id="node-list" class="node-list"></ul>
   </div>
 
-  <!-- ── TAB: INSIGHTS ──────────────────────────────────────── -->
-  <div id="tab-insights" class="tab-panel" style="display:none">
-    <div class="insights-container">
-      <!-- Ask my research -->
-      <div class="insights-section ask-section">
-        <div class="insights-section-header">
-          <span class="insights-section-title">Preguntale a tu investigacion</span>
-        </div>
-        <p class="insights-desc">Hace preguntas sobre tus fuentes: contradicciones, hipotesis, que falta, que dicen los autores.</p>
-        <div class="ask-input-row">
-          <input type="text" id="ask-input" class="ask-input" placeholder="Ej: ¿Que contradicciones hay entre mis fuentes?" maxlength="500" />
-          <button class="insights-btn ask-btn" id="btn-ask-research">Preguntar</button>
-        </div>
-        <div id="ask-results" class="insights-results"></div>
-      </div>
-      <!-- Gaps -->
-      <div class="insights-section">
-        <div class="insights-section-header">
-          <span class="insights-section-title">Vacios de investigacion</span>
-          <button class="insights-btn" id="btn-find-gaps">Analizar</button>
-        </div>
-        <p class="insights-desc">Detecta que subtemas o perspectivas faltan en tu investigacion.</p>
-        <div id="gaps-results" class="insights-results">
-          <p class="insights-placeholder">Necesitas al menos 5 fuentes para analizar vacios.</p>
+  <!-- ── TAB: CHAT ──────────────────────────────────────────── -->
+  <div id="tab-chat" class="tab-panel" style="display:none">
+    <div class="chat-container">
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-welcome">
+          <div class="chat-welcome-icon">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="7" cy="7" r="3.5" stroke="var(--purple)" stroke-width="1.6"/><circle cx="21" cy="7" r="3.5" stroke="var(--purple)" stroke-width="1.6"/><circle cx="14" cy="21" r="3.5" stroke="var(--purple)" stroke-width="1.6"/><line x1="10" y1="8" x2="18" y2="8" stroke="var(--purple-mid)" stroke-width="1.2"/><line x1="8.5" y1="10" x2="12.5" y2="18" stroke="var(--purple-mid)" stroke-width="1.2"/><line x1="19.5" y1="10" x2="15.5" y2="18" stroke="var(--purple-mid)" stroke-width="1.2"/></svg>
+          </div>
+          <p class="chat-welcome-title">Chatea con tu investigacion</p>
+          <p class="chat-welcome-sub">Pregunta sobre tus fuentes, busca contradicciones, pedi sintesis, compara autores.</p>
         </div>
       </div>
-      <!-- Suggestions -->
-      <div class="insights-section">
-        <div class="insights-section-header">
-          <span class="insights-section-title">Fuentes sugeridas</span>
-          <button class="insights-btn" id="btn-suggest-sources">Sugerir</button>
-        </div>
-        <p class="insights-desc">Recomendaciones de papers, articulos o temas para explorar.</p>
-        <div id="suggestions-results" class="insights-results">
-          <p class="insights-placeholder">Necesitas al menos 3 fuentes para recibir sugerencias.</p>
-        </div>
+      <div class="chat-input-bar">
+        <input type="text" id="chat-input" class="chat-input" placeholder="Pregunta algo sobre tu investigacion..." maxlength="500" />
+        <button class="chat-send-btn" id="btn-chat-send" title="Enviar">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 2L7 9M14 2l-5 12-2-5-5-2 12-5z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
     </div>
   </div>
