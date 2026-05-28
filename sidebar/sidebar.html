@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResearchMap</title>
+  <link rel="stylesheet" href="sidebar.css" />
+</head>
+<body>
+
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo" aria-hidden="true">R</div>
+      <span class="app-title">ResearchMap</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="btn-export" title="Exportar grafo como JSON">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v9M4 7l3.5 3.5L11 7M2 13h11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-clear" title="Limpiar grafo">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 4h11M5 4V2.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5V4M6 7v4M9 7v4M3 4l.8 8.1A1 1 0 0 0 4.8 13h5.4a1 1 0 0 0 1-.9L12 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Tab bar -->
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="graph" role="tab">Grafo</button>
+    <button class="tab" data-tab="list" role="tab">Fuentes</button>
+    <button class="tab" data-tab="insights" role="tab">Insights</button>
+    <button class="tab" data-tab="settings" role="tab">Config</button>
+  </nav>
+
+  <!-- ── TAB: GRAPH ─────────────────────────────────────────── -->
+  <div id="tab-graph" class="tab-panel active">
+    <div id="graph-container">
+      <svg id="graph-svg"></svg>
+      <div id="graph-empty" class="empty-state" style="display:none">
+        <div class="empty-icon">◎</div>
+        <p>Tu grafo esta vacio.</p>
+        <p class="empty-sub">Navega normalmente — las paginas se capturan automaticamente.</p>
+      </div>
+    </div>
+
+    <!-- Node detail panel (shown on click) -->
+    <div id="node-detail" class="node-detail" style="display:none">
+      <div class="node-detail-header">
+        <span id="detail-source-badge" class="source-badge"></span>
+        <button class="icon-btn detail-close" id="btn-close-detail" title="Cerrar">✕</button>
+      </div>
+      <p class="detail-title" id="detail-title"></p>
+      <p class="detail-snippet" id="detail-snippet"></p>
+      <div class="detail-concepts" id="detail-concepts"></div>
+      <div class="detail-actions">
+        <a class="detail-link" id="detail-link" target="_blank" rel="noopener">Abrir página →</a>
+        <button class="detail-delete" id="btn-delete-node">Eliminar nodo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: LIST ──────────────────────────────────────────── -->
+  <div id="tab-list" class="tab-panel" style="display:none">
+    <div class="filter-row">
+      <button class="filter-chip active" data-filter="all">Todos</button>
+      <button class="filter-chip" data-filter="page">Web</button>
+      <button class="filter-chip" data-filter="ai_output">IA</button>
+      <button class="filter-chip" data-filter="note">Notas</button>
+    </div>
+    <ul id="node-list" class="node-list"></ul>
+  </div>
+
+  <!-- ── TAB: INSIGHTS ──────────────────────────────────────── -->
+  <div id="tab-insights" class="tab-panel" style="display:none">
+    <div class="insights-container">
+      <!-- Ask my research -->
+      <div class="insights-section ask-section">
+        <div class="insights-section-header">
+          <span class="insights-section-title">Preguntale a tu investigacion</span>
+        </div>
+        <p class="insights-desc">Hace preguntas sobre tus fuentes: contradicciones, hipotesis, que falta, que dicen los autores.</p>
+        <div class="ask-input-row">
+          <input type="text" id="ask-input" class="ask-input" placeholder="Ej: ¿Que contradicciones hay entre mis fuentes?" maxlength="500" />
+          <button class="insights-btn ask-btn" id="btn-ask-research">Preguntar</button>
+        </div>
+        <div id="ask-results" class="insights-results"></div>
+      </div>
+      <!-- Gaps -->
+      <div class="insights-section">
+        <div class="insights-section-header">
+          <span class="insights-section-title">Vacios de investigacion</span>
+          <button class="insights-btn" id="btn-find-gaps">Analizar</button>
+        </div>
+        <p class="insights-desc">Detecta que subtemas o perspectivas faltan en tu investigacion.</p>
+        <div id="gaps-results" class="insights-results">
+          <p class="insights-placeholder">Necesitas al menos 5 fuentes para analizar vacios.</p>
+        </div>
+      </div>
+      <!-- Suggestions -->
+      <div class="insights-section">
+        <div class="insights-section-header">
+          <span class="insights-section-title">Fuentes sugeridas</span>
+          <button class="insights-btn" id="btn-suggest-sources">Sugerir</button>
+        </div>
+        <p class="insights-desc">Recomendaciones de papers, articulos o temas para explorar.</p>
+        <div id="suggestions-results" class="insights-results">
+          <p class="insights-placeholder">Necesitas al menos 3 fuentes para recibir sugerencias.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: SETTINGS ─────────────────────────────────────── -->
+  <div id="tab-settings" class="tab-panel" style="display:none">
+    <div class="settings-section">
+      <label class="settings-label">Tema de investigacion</label>
+      <p class="settings-desc" id="topic-summary">No definido.</p>
+      <button class="settings-save-btn" id="btn-edit-topic">Definir / editar tema</button>
+    </div>
+    <div class="settings-section">
+      <label class="settings-label" for="input-apikey">Gemini API Key</label>
+      <p class="settings-desc">Necesaria para generar resumenes, encontrar relaciones y analizar tu investigacion. Pega tu API key de Google AI Studio. Se guarda solo en tu navegador.</p>
+      <input type="password" id="input-apikey" class="settings-input" placeholder="API key de Gemini..." autocomplete="off" />
+      <button class="settings-save-btn" id="btn-save-key">Guardar clave</button>
+      <p class="settings-status" id="key-status"></p>
+    </div>
+    <div class="settings-section">
+      <label class="settings-label">Re-analizar nodos</label>
+      <p class="settings-desc">Si algunos nodos tienen conceptos pobres (por falta de API key o rate limit), esto los re-procesa con la IA.</p>
+      <button class="settings-save-btn" id="btn-reanalyze">Re-analizar nodos debiles</button>
+      <p class="settings-status" id="reanalyze-status"></p>
+    </div>
+    <div class="settings-section">
+      <label class="settings-label">Exportar</label>
+      <p class="settings-desc">Descargá tu grafo completo en formato JSON para importarlo en otras herramientas.</p>
+      <button class="settings-save-btn" id="btn-export-settings">Descargar grafo JSON</button>
+    </div>
+  </div>
+
+  <!-- ── TOPIC GATE ─────────────────────────────────────────────── -->
+  <div id="topic-gate" class="topic-gate" style="display:none">
+    <div class="topic-card">
+      <div class="topic-title">Tema de investigacion (opcional)</div>
+      <p class="topic-sub">Defini el contexto de tu investigacion para que los resumenes y analisis sean mas precisos.</p>
+      <label class="topic-label" for="topic-title">Titulo del tema</label>
+      <input type="text" id="topic-title" class="topic-input" placeholder="Ej: Modelos generativos para educacion" maxlength="120" />
+      <label class="topic-label" for="topic-desc">Breve descripcion</label>
+      <textarea id="topic-desc" class="topic-input topic-textarea" rows="4" placeholder="Que estas investigando y por que" maxlength="600"></textarea>
+      <div class="topic-actions">
+        <button class="topic-save" id="btn-save-topic">Guardar tema</button>
+      </div>
+      <div class="topic-status" id="topic-status"></div>
+    </div>
+  </div>
+
+  <!-- ── QUICK NOTE BAR ─────────────────────────────────────── -->
+  <div class="note-bar">
+    <input type="text" id="note-input" class="note-input" placeholder="Agregar nota rápida…" maxlength="500" />
+    <button class="note-submit" id="btn-add-note" title="Agregar nota">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <script src="d3.min.js"></script>
+  <script src="sidebar.js"></script>
+</body>
+</html>
