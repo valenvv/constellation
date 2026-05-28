@@ -216,17 +216,21 @@ function doRenderGraph() {
   const edgeTooltip = getEdgeTooltip();
   const edgeEvents = (sel) => sel
     .on("mousemove", (event, d) => {
-      g.classed("edge-hover", true);
-      link.classed("hl", (l) => l === d);
-      linkHit.classed("hl", (l) => l === d);
-      node.classed("hl", (n) => n.id === d.source.id || n.id === d.target.id);
+      if (!g.classed("node-focused")) {
+        g.classed("edge-hover", true);
+        link.classed("hl", (l) => l === d);
+        linkHit.classed("hl", (l) => l === d);
+        node.classed("hl", (n) => n.id === d.source.id || n.id === d.target.id);
+      }
       showEdgeTooltip(edgeTooltip, formatEdgeReason(d), event);
     })
     .on("mouseout", () => {
-      g.classed("edge-hover", false);
-      link.classed("hl", false);
-      linkHit.classed("hl", false);
-      node.classed("hl", false);
+      if (!g.classed("node-focused")) {
+        g.classed("edge-hover", false);
+        link.classed("hl", false);
+        linkHit.classed("hl", false);
+        node.classed("hl", false);
+      }
       hideEdgeTooltip(edgeTooltip);
     })
     .on("click", (event, d) => {
