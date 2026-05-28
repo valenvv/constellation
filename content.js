@@ -78,8 +78,8 @@
 
     // Apps, tools, social, email — never research content
     const blocked = [
-      "twitter.com", "x.com", "facebook.com", "instagram.com", "tiktok.com",
-      "linkedin.com", "reddit.com", "threads.net", "pinterest.com",
+      "facebook.com", "instagram.com", "tiktok.com",
+      "reddit.com", "threads.net", "pinterest.com",
       "meet.google.com", "mail.google.com", "calendar.google.com",
       "drive.google.com", "docs.google.com", "sheets.google.com",
       "slides.google.com", "chat.google.com", "contacts.google.com",
@@ -91,7 +91,7 @@
       "teams.microsoft.com", "login.microsoftonline.com",
       "zoom.us", "discord.com", "slack.com", "web.whatsapp.com",
       "web.telegram.org", "netflix.com", "spotify.com", "twitch.tv",
-      "amazon.com", "ebay.com", "mercadolibre.com",
+      "ebay.com", "mercadolibre.com",
       "github.com", "gitlab.com", "bitbucket.org",
       "localhost",
       // Search engines — never capture results pages
