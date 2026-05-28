@@ -80,7 +80,7 @@ html, body {
 
 .tab {
   flex: 1;
-  padding: 8px 0;
+  padding: 12px 0;
   font-size: 12px;
   font-weight: 400;
   text-align: center;
@@ -212,7 +212,7 @@ html, body {
 
 /* D3 graph styles */
 .graph-link {
-  stroke: var(--purple-mid);
+  stroke: var(--purple);
   stroke-opacity: 0.45;
   stroke-width: 1.2;
   pointer-events: none;
@@ -281,12 +281,12 @@ html, body {
   cursor: pointer;
 }
 
-.node-page circle      { fill: #EEEDFE; stroke: #534AB7; }
+.node-page circle      { fill: var(--purple-light); stroke: var(--purple); }
 .node-ai_output circle { fill: #E1F5EE; stroke: #1D9E75; }
 .node-note circle      { fill: #FAEEDA; stroke: #BA7517; }
 
 @media (prefers-color-scheme: dark) {
-  .node-page circle      { fill: #26215C; stroke: #7F77DD; }
+  .node-page circle      { fill: #26215C; stroke: #7C69B8; }
   .node-ai_output circle { fill: #04342C; stroke: #1D9E75; }
   .node-note circle      { fill: #412402; stroke: #EF9F27; }
 }
@@ -869,8 +869,8 @@ html, body {
 /* ── Cluster hulls ───────────────────────────────────────────── */
 
 .cluster-hull {
-  fill: rgba(0,0,0,0.06);
-  stroke: rgba(0,0,0,0.30);
+  fill: rgba(0,0,0,0.04);
+  stroke: rgba(0,0,0,0.22);
   fill-opacity: 1;
   stroke-opacity: 1;
   stroke-width: 1.5;
@@ -880,8 +880,8 @@ html, body {
 
 @media (prefers-color-scheme: dark) {
   .cluster-hull {
-    fill: rgba(255,255,255,0.06);
-    stroke: rgba(255,255,255,0.25);
+    fill: rgba(255,255,255,0.04);
+    stroke: rgba(255,255,255,0.18);
   }
 }
 

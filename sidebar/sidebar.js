@@ -517,7 +517,8 @@ function setupExport() {
     URL.revokeObjectURL(url);
   };
 
-  document.getElementById("btn-export").addEventListener("click", doExport);
+  const exportBtn = document.getElementById("btn-export");
+  if (exportBtn) exportBtn.addEventListener("click", doExport);
   document.getElementById("btn-export-settings").addEventListener("click", doExport);
 }
 
